@@ -55,5 +55,5 @@ class Reactions:
                 return coeff, species
 
     def list_reactions(self):
-        for i, reaction in enumerate(self.reactions):
-            print(reaction[0], reaction[1:])
+        for reaction in self.reactions:
+            print(list(reaction.values())[0])

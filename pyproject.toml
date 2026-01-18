@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "process-engineering-toolkit"
+version = "0.1.0"
+description = "Modular automated process engineering models for unit operation sizing and analysis"
+authors = [{name = "Kasper Kofod Boss"}]
+requires-python = ">=3.11"
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "matplotlib"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
