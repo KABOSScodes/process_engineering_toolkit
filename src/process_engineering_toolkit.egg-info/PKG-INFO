@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: process-engineering-toolkit
+Version: 0.1.0
+Summary: Modular automated process engineering models for unit operation sizing and analysis
+Author: Kasper Kofod Boss
+Requires-Python: >=3.11
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: pandas
+Requires-Dist: matplotlib

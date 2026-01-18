@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/process_engineering_toolkit/CSTR.py
+src/process_engineering_toolkit/__init__.py
+src/process_engineering_toolkit/feed.py
+src/process_engineering_toolkit/reactions.py
+src/process_engineering_toolkit.egg-info/PKG-INFO
+src/process_engineering_toolkit.egg-info/SOURCES.txt
+src/process_engineering_toolkit.egg-info/dependency_links.txt
+src/process_engineering_toolkit.egg-info/requires.txt
+src/process_engineering_toolkit.egg-info/top_level.txt
