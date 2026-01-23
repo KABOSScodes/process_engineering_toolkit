@@ -1,5 +1,7 @@
 from fractions import Fraction
 from collections.abc import Iterable
+from abc import ABC, abstractmethod
+import numpy as np
 
 class Reactions:
     """This class currently assumes elementary reactions"""
@@ -57,24 +59,33 @@ class Reactions:
     
     def _parse_reactions(self, reactions):
         parsed_reactions = []
-        for i, reaction in enumerate(reactions):
-            # Hvad hvis man vil give reaktionsparametre ved andet end pre-exponential factor og aktiveringsenergi?
-            # Temp er konstant og man ved hvad k_f og k_b er direkte.
-            # Måske man gerne vil give funktion for reaktionshastighed, -r_A, direkte?
-            # Hvad hvis man vil reaktion ikke er elementær og man gerne vil give det (samme som ovenover)?
-            # Måske det vil være en ide i stedet at bruge funktion for reaktionshastighed direkte som input?
-            # Dette kan man lave en anden beregner til. For skal vi måske bare fortsætte.
 
-            parsed_reaction = {
-                f"Reaction{i+1}": reaction[0],
-                "stoichiometry": self._extract_stoichiometry(reaction[0]),
-                "forward_rate_parameters": reaction[1],
-                "backward_rate_parameters": reaction[2] if len(reaction) > 2 else None,
-                "rate_law": "mass_action",
-                }
+        for i, reaction_spec in enumerate(reactions):
+            reaction_string = reaction_spec[0]
+            params = reaction_spec[1:]
 
-            parsed_reactions.append(parsed_reaction)
+            # Parse stoichiometry
+            stoichiometry = self._extract_stoichiometry(reaction_string)
+
+            # Build rate-law object
+            rate_law = self._build_rate_law(
+                stoichiometry=stoichiometry,
+                params=params,
+                reversible="<->" in reaction_string,
+            )
+
+            # Create Reaction object
+            reaction = Reaction(
+                name=f"Reaction {i+1}",
+                reaction_string=reaction_string,
+                stoichiometry=stoichiometry,
+                rate_law=rate_law,
+            )
+
+            parsed_reactions.append(reaction)
+
         return parsed_reactions
+
     
     def _extract_stoichiometry(self, reaction):
         """Parses a reaction string into species and stoichiometric coefficients."""
@@ -110,7 +121,93 @@ class Reactions:
                 coeff = term[:i] or "1"
                 species = term[i:]
                 return coeff, species
+    
+    def _build_rate_law(self, stoichiometry, params, reversible):
+        """To be implemented"""
 
     def list_reactions(self):
         for reaction in self.reactions:
             print(list(reaction.values())[0])
+
+
+class RateLaw(ABC):
+    """Abstract base class for a reaction rate law."""
+
+    @abstractmethod
+    def evaluate(self, concentrations: dict[str, float], T: float = None) -> float:
+        """
+        Evaluate the reaction rate.
+        :param concentrations: dict of species concentrations {species: C}
+        :param T: Temperature in K (if needed)
+        :return: reaction rate 
+        """
+        pass
+
+class ElementaryRateLaw(RateLaw):
+    def __init__(
+        self,
+        stoichiometry: dict[str, float],
+        k0_f: float,
+        Ea_f: float,
+        k0_b: float | None = None,
+        Ea_b: float | None = None,
+    ):
+        
+        self.stoichiometry = stoichiometry
+        self.k0_f = k0_f
+        self.Ea_f = Ea_f
+        self.k0_b = k0_b
+        self.Ea_b = Ea_b
+
+    def k_forward(self, T: float) -> float:
+        R = 8.314
+        return self.k0_f * np.exp(-self.Ea_f / (R * T))
+
+    def k_backward(self, T: float) -> float:
+        if self.k0_b is None:
+            return 0.0
+        R = 8.314
+        return self.k0_b * np.exp(-self.Ea_b / (R * T))
+
+    def evaluate(self, concentrations: dict[str, float], T: float) -> float:
+        """
+        Elementary mass-action rate:
+        r = k_f * Π C_i^{-ν_i}  (reactants)
+          - k_b * Π C_j^{ν_j}   (products)
+        """
+        # Forward rate
+        r_f = self.k_forward(T)
+        for species, coeff in self.stoichiometry.items():
+            if coeff < 0:
+                if species not in concentrations:
+                    raise KeyError(f"Missing concentration for species '{species}'")
+                r_f *= concentrations[species] ** (-coeff)
+
+        # Backward rate (if reversible)
+        r_b = 0.0
+        if self.k0_b is not None:
+            r_b = self.k_backward(T)
+            for species, coeff in self.stoichiometry.items():
+                if coeff > 0:  # products
+                    if species not in concentrations:
+                        raise KeyError(f"Missing concentration for species '{species}'")
+                    r_b *= concentrations[species] ** coeff
+
+        return r_f - r_b
+    
+
+class Reaction:
+    def __init__(
+        self,
+        name: str,
+        reaction_string: str,
+        stoichiometry: dict[str, float],
+        rate_law: RateLaw,
+    ):
+        self.name = name
+        self.reaction_string = reaction_string
+        self.stoichiometry = stoichiometry
+        self.rate_law = rate_law
+
+    def rate(self, concentrations, T):
+        return self.rate_law.evaluate(concentrations, T)
