@@ -61,7 +61,7 @@ A general framework / system skeleton is now complete (up for revision at a late
 
 ## Repository structure
 
-process_engineering_toolkit/
+<pre> ```process_engineering_toolkit/
 │
 ├── docs/                    # Documentation
 ├── notebooks/               # Example explorations and tutorials
@@ -81,7 +81,7 @@ process_engineering_toolkit/
 │           └── pbr.py       # Packed Bed Reactor (planned)
 │
 ├── README.md                # This file
-└── pyproject.toml           # Project configuration and dependencies
+└── pyproject.toml           # Project configuration and dependencies```</pre>
 
 <!-- ## Illustrations
 
