@@ -1,13 +1,101 @@
-from fractions import Fraction
 from collections.abc import Iterable
-from abc import ABC, abstractmethod
+
 import numpy as np
+
+from .rate_laws import (
+    MassActionRateLaw,
+    RateLaw,
+)
+
+
+class Reaction:
+    def __init__(
+        self,
+        name: str,
+        # reaction_string: str,
+        stoichiometry: dict[str, float],
+        rate_law: RateLaw,
+    ):
+        self.name = name
+        # self.reaction_string = reaction_string
+        self.stoichiometry = stoichiometry
+        self.rate_law = rate_law
+
+    def _compile(self, species_index):
+        """
+        Convert species names to indices once.
+        """
+        reactant_indices = []
+        reactant_orders = []
+
+        product_indices = []
+        product_orders = []
+
+        for sp, coeff in self.stoichiometry.items():
+
+            idx = species_index[sp]
+
+            if coeff < 0:
+                reactant_indices.append(idx)
+                reactant_orders.append(abs(coeff))
+
+            elif coeff > 0:
+                product_indices.append(idx)
+                product_orders.append(coeff)
+
+        # Store on reaction
+        self.reactant_indices = reactant_indices
+        self.reactant_orders = reactant_orders
+        self.product_indices = product_indices
+        self.product_orders = product_orders
+
+        # ALSO store on rate law
+        self.rate_law.reactant_indices = reactant_indices
+        self.rate_law.reactant_orders = reactant_orders
+        self.rate_law.product_indices = product_indices
+        self.rate_law.product_orders = product_orders
+    
+    def rate(self, C, T):
+        return self.rate_law.rate(C, T)
 
 class Reactions:
     """This class currently assumes elementary reactions"""
     def __init__(self, reactions):
         self.reaction_specs = self._normalize_input(reactions)
         self.reactions = self._parse_reactions(self.reaction_specs)
+        self.species = self._build_species()
+        self.SM = self._build_stoichiometric_matrix()
+        self.reactant_orders = self._build_reactant_orders()
+        self.product_orders = self._build_product_orders()
+    
+    def _build_species(self):
+        species_set = set()
+
+        for rxn in self.reactions:
+            for sp in rxn.stoichiometry.keys():
+                species_set.add(sp)
+        
+        return sorted(species_set)
+
+    def _build_stoichiometric_matrix(self):
+        n_species = len(self.species)
+        n_reactions = len(self.reactions)
+
+        SM = np.zeros((n_species, n_reactions))
+
+        for j, rxn in enumerate(self.reactions):
+            stoich = rxn.stoichiometry
+
+            for i, sp in enumerate(self.species):
+                SM[i, j] = stoich.get(sp, 0.0)
+
+        return SM
+
+    def _build_reactant_orders(self): #!# 
+        return -np.minimum(self.SM, 0)
+    
+    def _build_product_orders(self): #!# 
+        return np.maximum(self.SM, 0)
     
     def _normalize_input(self, reactions):
         """
@@ -15,7 +103,7 @@ class Reactions:
           - single reaction spec
           - list/tuple of reaction specs
 
-        Reaction spec is list or tuple of format: 
+        Reaction spec is list or tuple of format: ### UPDATE THIS TO DICT AS IN NEW FORMAT
         ("reaction string", forward_params (k0_f and E_f in a list), optional backward_params (k0_b and E_b in a list))
         With k0 being the pre-exponential factor, E the activation energy and _f and _b indicating forward and backward reactions.
         
@@ -37,22 +125,35 @@ class Reactions:
 
     def _is_reaction_spec(self, obj):
         """
-        Heuristic check:
-        ("reaction string", forward_params (k0_f and E_f in a list), optional backward_params (Same format as forward_params))
+        Validate that obj matches the reaction spec format:
+
+        {
+            "equation": str,
+            "rate_law": str,
+            "parameters": dict,
+            optional "name": str
+        }
         """
-        if not isinstance(obj, (list, tuple)):
+        if not isinstance(obj, dict):
             return False
 
-        if len(obj) not in (2, 3):
+        # Required keys
+        required_keys = {"equation", "rate_law", "parameters"}
+        if not required_keys.issubset(obj.keys()):
             return False
 
-        if not isinstance(obj[0], str):
+        # Type checks
+        if not isinstance(obj["equation"], str):
             return False
 
-        if not isinstance(obj[1], (list, tuple)):
+        if not isinstance(obj["rate_law"], str):
             return False
 
-        if len(obj) == 3 and not isinstance(obj[2], (list, tuple)):
+        if not isinstance(obj["parameters"], dict):
+            return False
+
+        # Optional name
+        if "name" in obj and not isinstance(obj["name"], str):
             return False
 
         return True
@@ -61,23 +162,23 @@ class Reactions:
         parsed_reactions = []
 
         for i, reaction_spec in enumerate(reactions):
-            reaction_string = reaction_spec[0]
-            params = reaction_spec[1:]
-
-            # Parse stoichiometry
+            # Extract reaction string and stoichiometry
+            reaction_string = reaction_spec["equation"]
             stoichiometry = self._extract_stoichiometry(reaction_string)
 
             # Build rate-law object
             rate_law = self._build_rate_law(
                 stoichiometry=stoichiometry,
-                params=params,
-                reversible="<->" in reaction_string,
+                rate_law_type=reaction_spec["rate_law"],
+                params=reaction_spec["parameters"],
             )
+
+            # Determine reaction name
+            name = reaction_spec.get("name", f"Reaction {i+1}")
 
             # Create Reaction object
             reaction = Reaction(
-                name=f"Reaction {i+1}",
-                reaction_string=reaction_string,
+                name=name,
                 stoichiometry=stoichiometry,
                 rate_law=rate_law,
             )
@@ -85,7 +186,6 @@ class Reactions:
             parsed_reactions.append(reaction)
 
         return parsed_reactions
-
     
     def _extract_stoichiometry(self, reaction):
         """Parses a reaction string into species and stoichiometric coefficients."""
@@ -106,11 +206,11 @@ class Reactions:
         stoichiometry = {}
         for i, term in enumerate(reactants):
             coeff, species = self._split_coeff_species(term)
-            stoichiometry[species] = -Fraction(coeff)
+            stoichiometry[species] = -coeff
 
         for i, term in enumerate(products):
             coeff, species = self._split_coeff_species(term)
-            stoichiometry[species] = Fraction(coeff)
+            stoichiometry[species] = coeff
 
         return stoichiometry
     
@@ -118,96 +218,81 @@ class Reactions:
         """Splits a term into coefficient and species."""
         for i, ch in enumerate(term):
             if ch.isalpha():
-                coeff = term[:i] or "1"
+                coeff = int(term[:i]) if term[:i] else 1
                 species = term[i:]
                 return coeff, species
     
-    def _build_rate_law(self, stoichiometry, params, reversible):
-        """To be implemented"""
+    def _build_rate_law(self, stoichiometry: dict[str, float], rate_law_type: str, params: dict):
+        
+        # Verify rate law type
+        allowed_rate_laws = {"elementary", "power", "michaelis-menten"}
+        if rate_law_type.lower() not in allowed_rate_laws:
+            raise ValueError(f"Unknown rate law type: {rate_law_type}. Allowed types are: {allowed_rate_laws}")
+
+        if rate_law_type.lower() == "elementary":
+            # Verify parameters
+            allowed_keys = {"kf", "kb", "k0_f", "k0_b", "Ea_f", "Ea_b"}
+            unknown_keys = set(params.keys()) - allowed_keys
+            if unknown_keys:
+                raise ValueError(f"Unknown parameters for MassActionRateLaw: {unknown_keys}")
+            
+            # Verify forward rate specification
+            has_direct_kf = "kf" in params
+            has_arrhenius_f = "k0_f" in params and "Ea_f" in params
+            if not (has_direct_kf or has_arrhenius_f):
+                raise ValueError(
+                    "Forward rate must be specified either as "
+                    "'kf' or as both 'k0_f' and 'Ea_f'."
+                    )
+
+            # Verify backward rate specification
+            has_kb = "kb" in params
+            has_arrhenius_b = "k0_b" in params and "Ea_b" in params
+            has_any_backward = any(key in params for key in ("kb", "k0_b", "Ea_b"))
+
+            if has_any_backward:
+
+                # Must be either kb OR Arrhenius pair
+                if not (has_kb or has_arrhenius_b):
+                    raise ValueError(
+                        "Backward rate must be specified either as "
+                        "'kb' or as both 'k0_b' and 'Ea_b'."
+                        )
+
+                # Cannot specify both forms
+                if has_kb and has_arrhenius_b:
+                    raise ValueError(
+                        "Backward rate cannot be specified both as "
+                        "'kb' and as ('k0_b', 'Ea_b')."
+                        )
+            
+            # Construct object #### This does not yet fit into properly into framework - I think #### 
+            return MassActionRateLaw(
+                stoichiometry=stoichiometry,
+                kf=params.get("kf"),
+                kb=params.get("kb"),
+                k0_f=params.get("k0_f"),
+                Ea_f=params.get("Ea_f"),
+                k0_b=params.get("k0_b"),
+                Ea_b=params.get("Ea_b"),
+                )
+        
+        # elif rate_law_type.lower() == "power": # To be implmented
+        #     # User-defined orders
+        #     return PowerLawRateLaw(
+        #         orders=params.get("orders", {}),
+        #         k=params.get("kf", 0)
+        #     )
+        
+        # elif rate_law_type.lower() == "michaelis-menten": # To be implemented
+        #     return MichaelisMentenRateLaw(
+        #         Vmax=params.get("Vmax", 0),
+        #         Km=params.get("Km", 1)
+        #     )
+        
+        else:
+            raise ValueError(f"Unknown rate law type: {rate_law_type}")
 
     def list_reactions(self):
         for reaction in self.reactions:
-            print(list(reaction.values())[0])
-
-
-class RateLaw(ABC):
-    """Abstract base class for a reaction rate law."""
-
-    @abstractmethod
-    def evaluate(self, concentrations: dict[str, float], T: float = None) -> float:
-        """
-        Evaluate the reaction rate.
-        :param concentrations: dict of species concentrations {species: C}
-        :param T: Temperature in K (if needed)
-        :return: reaction rate 
-        """
-        pass
-
-class ElementaryRateLaw(RateLaw):
-    def __init__(
-        self,
-        stoichiometry: dict[str, float],
-        k0_f: float,
-        Ea_f: float,
-        k0_b: float | None = None,
-        Ea_b: float | None = None,
-    ):
-        
-        self.stoichiometry = stoichiometry
-        self.k0_f = k0_f
-        self.Ea_f = Ea_f
-        self.k0_b = k0_b
-        self.Ea_b = Ea_b
-
-    def k_forward(self, T: float) -> float:
-        R = 8.314
-        return self.k0_f * np.exp(-self.Ea_f / (R * T))
-
-    def k_backward(self, T: float) -> float:
-        if self.k0_b is None:
-            return 0.0
-        R = 8.314
-        return self.k0_b * np.exp(-self.Ea_b / (R * T))
-
-    def evaluate(self, concentrations: dict[str, float], T: float) -> float:
-        """
-        Elementary mass-action rate:
-        r = k_f * Π C_i^{-ν_i}  (reactants)
-          - k_b * Π C_j^{ν_j}   (products)
-        """
-        # Forward rate
-        r_f = self.k_forward(T)
-        for species, coeff in self.stoichiometry.items():
-            if coeff < 0:
-                if species not in concentrations:
-                    raise KeyError(f"Missing concentration for species '{species}'")
-                r_f *= concentrations[species] ** (-coeff)
-
-        # Backward rate (if reversible)
-        r_b = 0.0
-        if self.k0_b is not None:
-            r_b = self.k_backward(T)
-            for species, coeff in self.stoichiometry.items():
-                if coeff > 0:  # products
-                    if species not in concentrations:
-                        raise KeyError(f"Missing concentration for species '{species}'")
-                    r_b *= concentrations[species] ** coeff
-
-        return r_f - r_b
-    
-
-class Reaction:
-    def __init__(
-        self,
-        name: str,
-        reaction_string: str,
-        stoichiometry: dict[str, float],
-        rate_law: RateLaw,
-    ):
-        self.name = name
-        self.reaction_string = reaction_string
-        self.stoichiometry = stoichiometry
-        self.rate_law = rate_law
-
-    def rate(self, concentrations, T):
-        return self.rate_law.evaluate(concentrations, T)
+            print(reaction.name, reaction.stoichiometry)
