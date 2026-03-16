@@ -81,7 +81,8 @@ A general framework / system skeleton is now complete (up for revision at a late
 │           └── pbr.py       # Packed Bed Reactor (planned)
 │
 ├── README.md                # This file
-└── pyproject.toml           # Project configuration and dependencies```
+└── pyproject.toml           # Project configuration and dependencies
+```
 
 <!-- ## Illustrations
 
