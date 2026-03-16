@@ -102,22 +102,19 @@ class Reactor(ABC):
         F0 = self.build_inlet_vector()
         FA0 = F0[species_idx]
 
+        rxn_index = 0
+        nuA = self.SM[species_idx, rxn_index]
+
         def residual(X):
 
-            F = F0.copy()
+            extent = FA0 * X / abs(nuA)
 
-            # Update molar flows based on conversion
-            F[species_idx] = FA0 * (1 - X)
-
-            # Apply stoichiometry
-            extent = FA0 * X / abs(self.SM[species_idx,0])
-
-            F = F0 + self.SM[:,0] * extent
+            F = F0 + self.SM[:, rxn_index] * extent
 
             r = self.reaction_rates(F)
 
-            return r[0]  # rate must be zero
+            return r[rxn_index]
 
-        sol = root_scalar(residual, bracket=[0,0.99])
+        sol = root_scalar(residual, bracket=[0,1], method="brentq")
 
         return sol.root
