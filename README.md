@@ -10,7 +10,7 @@ PET aims to provide simple, physics-based modeling tools for rapid conceptual pr
 
 - [Motivation](#Motivation)
 - [Project Status](#project-status)
-- [Planned Progression](#planned-progression)
+    - [Planned Progression](#planned-progression)
 - [Repository Structure](#repository-structure)
 
 ## Motivation
@@ -61,7 +61,7 @@ A general framework / system skeleton is now complete (up for revision at a late
 
 ## Repository structure
 
-<pre> ```process_engineering_toolkit/
+```process_engineering_toolkit/
 │
 ├── docs/                    # Documentation
 ├── notebooks/               # Example explorations and tutorials
@@ -81,7 +81,7 @@ A general framework / system skeleton is now complete (up for revision at a late
 │           └── pbr.py       # Packed Bed Reactor (planned)
 │
 ├── README.md                # This file
-└── pyproject.toml           # Project configuration and dependencies```</pre>
+└── pyproject.toml           # Project configuration and dependencies```
 
 <!-- ## Illustrations
 
