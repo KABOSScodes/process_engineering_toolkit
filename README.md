@@ -35,8 +35,9 @@ A general framework / system skeleton is now complete (up for revision at a late
 ### Planned Progression
 
 - [ ] Add new functionalities to PFR
-    - [ ] Determine required volume given target conversion
-    - [ ] Determine conversion for specific volume
+    - [X] Determine required volume given target conversion
+    - [X] Determine conversion profile
+    - [X] Determine conversion for specific volume
 - [ ] Add new general reactor functionalities
     - [ ] Automatic unit handling/conversion using pint
     - [ ] Additional rate laws
