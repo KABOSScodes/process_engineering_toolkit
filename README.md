@@ -30,18 +30,18 @@ PET is designed as:
 
 ## Project Status
 
-A general framework / system skeleton is now complete (up for revision at a later stage) and the first reactor has been added (Plug Flow Reactor - PFR). PFR has completed the test case of solving equilibrium conversion and new functionalities will added according to the Planned Progression below.
+A general framework / system skeleton is now complete (up for revision at a later stage). New functionalities will added according to the Planned Progression below. Currently testing new rate law frameword and power law addition.
 
 ### Planned Progression
 
-- [ ] Add new functionalities to PFR
+- [X] Add new functionalities to PFR
     - [X] Determine required volume given target conversion
     - [X] Determine conversion profile
     - [X] Determine conversion for specific volume
 - [ ] Add new general reactor functionalities
     - [ ] Automatic unit handling/conversion using pint
     - [ ] Additional rate laws
-        - [ ] Custom
+        - [X] Power law
         - [ ] Michaelis-Menten
     - [ ] Plotting (including target folder for saving plots)
 - [ ] Add additional units
