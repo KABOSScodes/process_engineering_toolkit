@@ -222,7 +222,7 @@ class PowerLawRateLaw(RateLaw):
     def _validate_species(self, orders): 
         for species in orders:
             if species not in self.species_list:
-                raise ValueError(f"Unknown species in rate expression {species}")
+                raise ValueError(f"Unknown species in rate expression: {species}")
     
     def _build(self):
 
