@@ -30,7 +30,7 @@ PET is designed as:
 
 ## Project Status
 
-A general framework / system skeleton is now complete (up for revision at a later stage). New functionalities will added according to the Planned Progression below. Currently testing new rate law frameword and power law addition.
+New functionalities will added according to the Planned Progression below. Currently testing new rate law framework and power law addition. Implementation into full framework is not currently completed. Also, reactor requires pressure and temperature for instantiation. This should only be required when necessary for determination of concentrations and/or rates.
 
 ### Planned Progression
 
