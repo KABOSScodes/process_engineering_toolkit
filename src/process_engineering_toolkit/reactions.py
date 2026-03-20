@@ -3,8 +3,10 @@ from collections.abc import Iterable
 import numpy as np
 
 from .rate_laws import (
-    MassActionRateLaw,
+    RATE_LAWS,
     RateLaw,
+    MassActionRateLaw,
+    PowerLawRateLaw,
 )
 
 
@@ -20,40 +22,35 @@ class Reaction:
         # self.reaction_string = reaction_string
         self.stoichiometry = stoichiometry
         self.rate_law = rate_law
-
+    
     def _compile(self, species_index):
         """
         Convert species names to indices once.
+        Also validates user-provided species for power-law rate laws.
         """
-        reactant_indices = []
-        reactant_orders = []
+        # Forward term (reactants)
+        if hasattr(self.rate_law, "orders_f"):
+            for sp in self.rate_law.orders_f:
+                if sp not in species_index:
+                    raise ValueError(f"Unknown species in rate expression: {sp}")
 
-        product_indices = []
-        product_orders = []
+        # Backward term (products)
+        if hasattr(self.rate_law, "orders_b"):
+            for sp in self.rate_law.orders_b:
+                if sp not in species_index:
+                    raise ValueError(f"Unknown species in rate expression: {sp}")
 
-        for sp, coeff in self.stoichiometry.items():
+        self.reactant_indices = [species_index[sp] for sp in self.rate_law.orders_f]
+        self.reactant_orders = list(self.rate_law.orders_f.values())
 
-            idx = species_index[sp]
+        self.product_indices = [species_index[sp] for sp in self.rate_law.orders_b]
+        self.product_orders = list(self.rate_law.orders_b.values())
 
-            if coeff < 0:
-                reactant_indices.append(idx)
-                reactant_orders.append(abs(coeff))
-
-            elif coeff > 0:
-                product_indices.append(idx)
-                product_orders.append(coeff)
-
-        # Store on reaction
-        self.reactant_indices = reactant_indices
-        self.reactant_orders = reactant_orders
-        self.product_indices = product_indices
-        self.product_orders = product_orders
-
-        # ALSO store on rate law
-        self.rate_law.reactant_indices = reactant_indices
-        self.rate_law.reactant_orders = reactant_orders
-        self.rate_law.product_indices = product_indices
-        self.rate_law.product_orders = product_orders
+        # Also store indices on rate law for fast evaluation
+        self.rate_law.reactant_indices = self.reactant_indices
+        self.rate_law.reactant_orders = self.reactant_orders
+        self.rate_law.product_indices = self.product_indices
+        self.rate_law.product_orders = self.product_orders
     
     def rate(self, C, T):
         return self.rate_law.rate(C, T)
@@ -222,76 +219,11 @@ class Reactions:
                 species = term[i:]
                 return coeff, species
     
-    def _build_rate_law(self, stoichiometry: dict[str, float], rate_law_type: str, params: dict):
-        
-        # Verify rate law type
-        allowed_rate_laws = {"elementary", "power", "michaelis-menten"}
-        if rate_law_type.lower() not in allowed_rate_laws:
-            raise ValueError(f"Unknown rate law type: {rate_law_type}. Allowed types are: {allowed_rate_laws}")
-
-        if rate_law_type.lower() == "elementary":
-            # Verify parameters
-            allowed_keys = {"kf", "kb", "k0_f", "k0_b", "Ea_f", "Ea_b"}
-            unknown_keys = set(params.keys()) - allowed_keys
-            if unknown_keys:
-                raise ValueError(f"Unknown parameters for MassActionRateLaw: {unknown_keys}")
-            
-            # Verify forward rate specification
-            has_direct_kf = "kf" in params
-            has_arrhenius_f = "k0_f" in params and "Ea_f" in params
-            if not (has_direct_kf or has_arrhenius_f):
-                raise ValueError(
-                    "Forward rate must be specified either as "
-                    "'kf' or as both 'k0_f' and 'Ea_f'."
-                    )
-
-            # Verify backward rate specification
-            has_kb = "kb" in params
-            has_arrhenius_b = "k0_b" in params and "Ea_b" in params
-            has_any_backward = any(key in params for key in ("kb", "k0_b", "Ea_b"))
-
-            if has_any_backward:
-
-                # Must be either kb OR Arrhenius pair
-                if not (has_kb or has_arrhenius_b):
-                    raise ValueError(
-                        "Backward rate must be specified either as "
-                        "'kb' or as both 'k0_b' and 'Ea_b'."
-                        )
-
-                # Cannot specify both forms
-                if has_kb and has_arrhenius_b:
-                    raise ValueError(
-                        "Backward rate cannot be specified both as "
-                        "'kb' and as ('k0_b', 'Ea_b')."
-                        )
-            
-            # Construct object #### This does not yet fit into properly into framework - I think #### 
-            return MassActionRateLaw(
-                stoichiometry=stoichiometry,
-                kf=params.get("kf"),
-                kb=params.get("kb"),
-                k0_f=params.get("k0_f"),
-                Ea_f=params.get("Ea_f"),
-                k0_b=params.get("k0_b"),
-                Ea_b=params.get("Ea_b"),
-                )
-        
-        # elif rate_law_type.lower() == "power": # To be implmented
-        #     # User-defined orders
-        #     return PowerLawRateLaw(
-        #         orders=params.get("orders", {}),
-        #         k=params.get("kf", 0)
-        #     )
-        
-        # elif rate_law_type.lower() == "michaelis-menten": # To be implemented
-        #     return MichaelisMentenRateLaw(
-        #         Vmax=params.get("Vmax", 0),
-        #         Km=params.get("Km", 1)
-        #     )
-        
-        else:
-            raise ValueError(f"Unknown rate law type: {rate_law_type}")
+    def _build_rate_law(self, stoichiometry, rate_law_type, params):
+        rate_law_cls = RATE_LAWS.get(rate_law_type.lower())
+        if rate_law_cls is None:
+            raise ValueError(f"Unknown rate law: {rate_law_type}")
+        return rate_law_cls(stoichiometry=stoichiometry, **params)
 
     def list_reactions(self):
         for reaction in self.reactions:
