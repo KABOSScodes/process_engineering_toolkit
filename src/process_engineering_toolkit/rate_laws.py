@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC #, abstractmethod
 import numpy as np
 
 # rate_laws.py
@@ -18,7 +18,6 @@ class RateLaw(ABC):
 
     def __init__(self, stoichiometry):
         self.stoichiometry = stoichiometry
-        # indices and orders will be set by Reaction._compile()
         self.reactant_indices = []
         self.reactant_orders = []
         self.product_indices = []
@@ -27,10 +26,6 @@ class RateLaw(ABC):
         self.orders_b = {}
         self.reversible = False
         self.R = 8.314
-
-    @abstractmethod
-    def rate(self, C, T):
-        pass
 
     def _validate_rate_constants(self, params):
         keys = set(params.keys())
@@ -54,6 +49,39 @@ class RateLaw(ABC):
                 raise ValueError("Backward rate constants must be provided correctly")
             if has_kb and has_arrhenius_b:
                 raise ValueError("Provide either 'kb' or ('k0_b', 'Ea_b'), not both")
+    
+    def _compute_forward_k(self, T=None):
+        if self.kf is not None:
+            return self.kf
+        elif self.k0_f is not None and self.Ea_f is not None:
+            if T is None:
+                raise ValueError("Temperature required for Arrhenius rate constant")
+            return self.k0_f * np.exp(-self.Ea_f / (self.R * T))
+        else:
+            raise ValueError("No forward rate constant provided")
+
+    def _compute_backward_k(self, T=None):
+        if not self.reversible:
+            return 0.0
+        if self.kb is not None:
+            return self.kb
+        elif self.k0_b is not None and self.Ea_b is not None:
+            if T is None:
+                raise ValueError("Temperature required for backward Arrhenius rate constant")
+            return self.k0_b * np.exp(-self.Ea_b / (self.R * T))
+        else:
+            raise ValueError("No backward rate constant provided for reversible reaction")
+
+    def rate(self, C, T=None):
+        rf = self._compute_forward_k(T)
+        for idx, order in zip(self.reactant_indices, self.reactant_orders):
+            rf *= C[idx] ** order
+        if not self.reversible:
+            return rf
+        rb = self._compute_backward_k(T)
+        for idx, order in zip(self.product_indices, self.product_orders):
+            rb *= C[idx] ** order
+        return rf - rb
 
 @register_rate_law("mass_action")
 class MassActionRateLaw(RateLaw):
@@ -71,30 +99,6 @@ class MassActionRateLaw(RateLaw):
         self.orders_f = {sp: -nu for sp, nu in stoichiometry.items() if nu < 0}
         self.orders_b = {sp: nu for sp, nu in stoichiometry.items() if nu > 0}
 
-    def _compute_forward_k(self, T):
-        if self.kf is not None:
-            return self.kf
-        return self.k0_f * np.exp(-self.Ea_f / (self.R * T))
-
-
-    def _compute_backward_k(self, T):
-        if not self.reversible:
-            return 0.0
-        if self.kb is not None:
-            return self.kb
-        return self.k0_b * np.exp(-self.Ea_b / (self.R * T))
-
-    def rate(self, C, T):
-        rf = self._compute_forward_k(T)
-        for idx, order in zip(self.reactant_indices, self.reactant_orders):
-            rf *= C[idx] ** order
-        if not self.reversible:
-            return rf
-        rb = self._compute_backward_k(T)
-        for idx, order in zip(self.product_indices, self.product_orders):
-            rb *= C[idx] ** order
-        return rf - rb
-
 @register_rate_law("power")
 class PowerLawRateLaw(RateLaw):
     def __init__(self, stoichiometry=None, **params):
@@ -106,6 +110,7 @@ class PowerLawRateLaw(RateLaw):
         if unknown:
             raise ValueError(f"Unknown parameters for PowerLaw: {unknown}")
 
+        # Extract orders
         expression = params.get("expression")
         if not expression:
             raise ValueError("Power law requires 'expression'")
@@ -143,17 +148,6 @@ class PowerLawRateLaw(RateLaw):
                 orders[factor.upper()] = 1.0
         return orders
 
-    def rate(self, C, T):
-        rf = self.kf if self.kf is not None else self.k0_f * np.exp(-self.Ea_f / (self.R * T))
-        for idx, order in zip(self.reactant_indices, self.reactant_orders):
-            rf *= C[idx] ** order
-        if not self.reversible:
-            return rf
-        rb = self.kb if self.kb is not None else self.k0_b * np.exp(-self.Ea_b / (self.R * T))
-        for idx, order in zip(self.product_indices, self.product_orders):
-            rb *= C[idx] ** order
-        return rf - rb
-
 # @register_rate_law("michaelis_menten") #### To be implemented ####
 # class MichaelisMentenRateLaw(RateLaw):
 #     def __init__(self, stoichiometry, **params):
@@ -161,6 +155,6 @@ class PowerLawRateLaw(RateLaw):
 #         self.Vmax = params["Vmax"]
 #         self.Km = params["Km"]
 
-#     def rate(self, C, T):
+#     def rate(self, C, T=None):
 #         idx = list(self.stoichiometry.keys())[0]  # assume single substrate
 #         return self.Vmax * C[idx] / (self.Km + C[idx])

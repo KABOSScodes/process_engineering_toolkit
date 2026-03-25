@@ -5,8 +5,6 @@ import numpy as np
 from .rate_laws import (
     RATE_LAWS,
     RateLaw,
-    MassActionRateLaw,
-    PowerLawRateLaw,
 )
 
 
