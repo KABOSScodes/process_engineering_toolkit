@@ -107,13 +107,13 @@ rxns = Reactions(reactions)
 # -----------------------------
 # 2. Define inlet stream
 # -----------------------------
-s1 = Stream("Fresh A", 20, {"A": 0.6, "I": 0.4})
+s1 = Stream("Fresh A", 20, {"A": 0.6, "I": 0.4}) # I: Inert
 
 # -----------------------------
 # 3. Define reactor conditions
 # -----------------------------
 parameters = {
-    "phase": "gas",    # Only gas is supported so far, but liquid will be added 
+    "phase": "gas",    # Only gas is supported so far
     "T": 340,          # K
     "P": 2 * 101325    # Pa
 }
@@ -172,17 +172,24 @@ plt.axvline(x=0.5, color='orange', linestyle='--', label='vline 0.5')
 plt.axhline(y=X, color='green', linestyle='-.', label=f'hline {X:.3f}')
 plt.axhline(y=Xeq, color='blue', linestyle='-.', label=f'hline (Xeq) {Xeq:.3f}')
 # Labels and legend
-plt.xlabel("PFR volume, m³")
+plt.xlabel("PFR volume, [m3]")
 plt.ylabel("Conversion, A")
 plt.legend(loc='lower right', fontsize=15)
 plt.show()
 ```
 
-
+![Conversion plot](plots/readme_plots/conversion_vs_volume.png)
 
 ```python
-
+plt.plot(profile["volume"], profile["concentration"]["B"], label="Conc, B")
+plt.plot(profile["volume"], profile["concentration"]["A"], label="Conc, A")
+plt.xlabel("PFR volume, [m3]")
+plt.ylabel("Concentration, [mmol / L]")
+plt.legend(loc='lower right', fontsize=15)
+plt.show()
 ```
+
+![Conversion plot](plots/readme_plots/conversion_vs_volume.png)
 
 <!-- ## Illustrations
 
