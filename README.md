@@ -184,10 +184,10 @@ plt.show()
 **Concentration vs PFR volume**
 
 ```python
-plt.plot(profile["volume"], profile["concentration"]["B"], label="Conc, B")
 plt.plot(profile["volume"], profile["concentration"]["A"], label="Conc, A")
+plt.plot(profile["volume"], profile["concentration"]["B"], label="Conc, B")
 plt.xlabel("PFR volume, [m3]")
-plt.ylabel("Concentration, [mmol / L]")
+plt.ylabel("Concentration, [mmol/L]")
 plt.legend(loc='lower right', fontsize=15)
 plt.show()
 ```
