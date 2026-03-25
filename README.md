@@ -24,13 +24,14 @@ Modern process engineering tools are often:
 PET is designed as:
 
 * Modular
-* Explicit
 * First-principles focused
 * Easy to extend with custom unit operations
 
 ## Project Status
 
-New functionalities will added according to the Planned Progression below. Currently testing new rate law framework and power law addition. Implementation into full framework is not currently completed. Also, reactor requires pressure and temperature for instantiation. This should only be required when necessary for determination of concentrations and/or rates.
+New functionalities will added according to the Planned Progression below (not in order necessarily). 
+
+New rate law framework has been finalized and tested. Likewise, Reactor base class and PFR class funcionalities have been streamlined for better scalability and extensibility.
 
 ### Planned Progression
 
@@ -38,6 +39,7 @@ New functionalities will added according to the Planned Progression below. Curre
     - [X] Determine required volume given target conversion
     - [X] Determine conversion profile
     - [X] Determine conversion for specific volume
+- [ ] Add liquid phase reactions
 - [ ] Add new general reactor functionalities
     - [ ] Automatic unit handling/conversion using pint
     - [ ] Additional rate laws
@@ -65,14 +67,14 @@ New functionalities will added according to the Planned Progression below. Curre
 ```process_engineering_toolkit/
 │
 ├── docs/                    # Documentation
-├── notebooks/               # Example explorations and tutorials
-├── plots/                   # Saved plots (auto-created by toolkit)
+├── notebooks/               # Explorations from development
+├── plots/                   # Saved plots
 ├── src/
 │   └── process_engineering_toolkit/
 │       ├── __init__.py
 │       ├── stream.py        # Stream class definition
 │       ├── reactions.py     # Reaction and Reactions classes
-│       ├── rate_laws.py     # Rate laws: Only MassAction currently
+│       ├── rate_laws.py     # Rate laws
 │       └── reactors/
 │           ├── __init__.py
 │           ├── base.py      # Reactor base class
@@ -83,6 +85,103 @@ New functionalities will added according to the Planned Progression below. Curre
 │
 ├── README.md                # This file
 └── pyproject.toml           # Project configuration and dependencies
+```
+
+## Example: Plug Flow Reactor (PFR)
+
+### Defining and solving a PFR reactor system
+
+```python
+import matplotlib.pyplot as plt
+from pet import Reactions, Stream, PFR
+
+# -----------------------------
+# 1. Define reactions
+# -----------------------------
+reactions = [
+    {"equation": "A <-> 2B", "rate_law": "mass_action", "parameters": {"kf": 0.3, "kb": 0.003}}
+    ]
+
+rxns = Reactions(reactions)
+
+# -----------------------------
+# 2. Define inlet stream
+# -----------------------------
+s1 = Stream("Fresh A", 20, {"A": 0.6, "I": 0.4})
+
+# -----------------------------
+# 3. Define reactor conditions
+# -----------------------------
+parameters = {
+    "phase": "gas",    # Only gas is supported so far, but liquid will be added 
+    "T": 340,          # K
+    "P": 2 * 101325    # Pa
+}
+
+# -----------------------------
+# 4. Instantiate reactor
+# -----------------------------
+pfr = PFR(rxns, inlet_streams=s1, parameters=parameters)
+
+# -----------------------------
+# 5. Key calculations
+# -----------------------------
+
+# Equilibrium conversion
+Xeq = pfr.equilibrium_conversion("A")
+print(f"Equilibrium conversion: {Xeq:.3f}")
+
+# Solve reactor over volume range
+pfr.solve(V_span=(0, 5))  # m³
+
+# Conversion at specific volume
+X = pfr.conversion_at_volume("A", 0.5)
+print(f"Conversion at 0.5 m³: {X:.3f}")
+
+# Required volume for target conversion
+V_req = pfr.volume_for_conversion("A", 0.4)
+print(f"Required volume for 40% conversion: {V_req:.3f} m3")
+```
+
+**Output:**
+
+```text
+Equilibrium conversion: 0.576
+Conversion at 0.5 m³: 0.351
+Required PFR volume [m³]: 0.632
+```
+This shows that equilibrium limits conversion to ~58%, and achieving 40% conversion requires ~0.63 m³ of reactor volume.
+
+### Plotting
+
+The entire profile is extracted first:
+
+```python
+profile = pfr.profile("A")
+```
+Plotting is currently done manually, but standard plotting functions will be added.
+
+**Conversion vs PFR volume**
+
+```python
+plt.plot(profile["volume"], profile["conversion"], label="Conversion profile")
+# Add vertical lines
+plt.axvline(x=V_req, color='red', linestyle='--', label=f'vline {V_req:.3f}')
+plt.axvline(x=0.5, color='orange', linestyle='--', label='vline 0.5')
+# Add horizontal line
+plt.axhline(y=X, color='green', linestyle='-.', label=f'hline {X:.3f}')
+plt.axhline(y=Xeq, color='blue', linestyle='-.', label=f'hline (Xeq) {Xeq:.3f}')
+# Labels and legend
+plt.xlabel("PFR volume, m³")
+plt.ylabel("Conversion, A")
+plt.legend(loc='lower right', fontsize=15)
+plt.show()
+```
+
+
+
+```python
+
 ```
 
 <!-- ## Illustrations
