@@ -12,6 +12,7 @@ PET aims to provide simple, physics-based modeling tools for rapid conceptual pr
 - [Project Status](#project-status)
     - [Planned Progression](#planned-progression)
 - [Repository Structure](#repository-structure)
+- [Example: Plug Flow Reactor (PFR)](#example-plug-flow-reactor-pfr)
 
 ## Motivation
 
@@ -189,7 +190,7 @@ plt.legend(loc='lower right', fontsize=15)
 plt.show()
 ```
 
-![Conversion plot](plots/readme_plots/conversion_vs_volume.png)
+![Conversion plot](plots/readme_plots/concentration_vs_volume.png)
 
 <!-- ## Illustrations
 
