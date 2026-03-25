@@ -181,6 +181,8 @@ plt.show()
 
 ![Conversion plot](plots/readme_plots/conversion_vs_volume.png)
 
+**Concentration vs PFR volume**
+
 ```python
 plt.plot(profile["volume"], profile["concentration"]["B"], label="Conc, B")
 plt.plot(profile["volume"], profile["concentration"]["A"], label="Conc, A")
