@@ -12,7 +12,8 @@ PET aims to provide simple, physics-based modeling tools for rapid conceptual pr
 - [Project Status](#project-status)
     - [Planned Progression](#planned-progression)
 - [Repository Structure](#repository-structure)
-- [Example: Plug Flow Reactor (PFR)](#example-plug-flow-reactor-pfr)
+- [Example: Single-reaction system (PFR)](#example-single-reaction-system-pfr)
+- [Example: Multi-reaction system (PFR)](#example-multi-reaction-system-pfr)
 
 ## Motivation
 
@@ -88,7 +89,7 @@ New rate law framework has been finalized and tested. Likewise, Reactor base cla
 └── pyproject.toml           # Project configuration and dependencies
 ```
 
-## Example: Plug Flow Reactor (PFR)
+## Example: Single-reaction system (PFR)
 
 ### Defining and solving a PFR reactor system
 
@@ -193,6 +194,8 @@ plt.show()
 ```
 
 ![Conversion plot](plots/readme_plots/concentration_vs_volume.png)
+
+## Example: Multi-reaction system (PFR)
 
 <!-- ## Illustrations
 
