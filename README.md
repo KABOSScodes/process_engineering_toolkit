@@ -130,26 +130,26 @@ pfr = PFR(rxns, inlet_streams=s1, parameters=parameters)
 
 # Equilibrium conversion
 Xeq = pfr.equilibrium_conversion("A")
-print(f"Equilibrium conversion: {Xeq:.3f}")
+print(f"{'Equilibrium conversion':<45}: {Xeq:.3f}")
 
-# Solve reactor over volume range
-pfr.solve(V_span=(0, 5))  # m³
+# Solve reactor over volume range [0; 5] m3
+pfr.solve(V_span=(0, 5))  # m3 - Must solve reactor before below calculations can be performed
 
 # Conversion at specific volume
 X = pfr.conversion_at_volume("A", 0.5)
-print(f"Conversion at 0.5 m³: {X:.3f}")
+print(f"{'Conversion at 0.5 m3':<45}: {X:.3f}")
 
 # Required volume for target conversion
 V_req = pfr.volume_for_conversion("A", 0.4)
-print(f"Required volume for 40% conversion: {V_req:.3f} m3")
+print(f"{'Required PFR volume for 40% conversion, m3':<45}: {V_req:.3f}")
 ```
 
 **Output:**
 
 ```text
-Equilibrium conversion: 0.576
-Conversion at 0.5 m³: 0.351
-Required PFR volume [m³]: 0.632
+Equilibrium conversion                       : 0.576
+Conversion at 0.5 m3                         : 0.351
+Required PFR volume for 40% conversion, m3   : 0.632
 ```
 This shows that equilibrium limits conversion to ~58%, and achieving 40% conversion requires ~0.63 m³ of reactor volume.
 
