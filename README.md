@@ -291,7 +291,7 @@ plt.legend(loc='lower right')
 plt.show()
 ```
 
-![Flow vs Volume](../plots/readme_plots/flow_vs_volume_multi.png)
+![Flow vs Volume](plots/readme_plots/flow_vs_volume_multi.png)
 
 
 <!-- ## Illustrations
