@@ -180,13 +180,7 @@ plt.legend(loc='lower right', fontsize=15)
 plt.show()
 ```
 
-<p align="center">
-  <img src="plots/readme_plots/conversion_vs_volume.png" width="500">
-</p>
-
 <img src="plots/readme_plots/conversion_vs_volume.png" width="500">
-
-<!-- ![Conversion plot](plots/readme_plots/conversion_vs_volume.png) -->
 
 **Concentration vs PFR volume**
 
@@ -199,7 +193,7 @@ plt.legend(loc='lower right', fontsize=15)
 plt.show()
 ```
 
-![Conversion plot](plots/readme_plots/concentration_vs_volume.png)
+<img src="plots/readme_plots/concentration_vs_volume.png" width="500">
 
 ## Example: Multi-reaction system (PFR)
 
