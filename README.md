@@ -180,7 +180,11 @@ plt.legend(loc='lower right', fontsize=15)
 plt.show()
 ```
 
-![Conversion plot](plots/readme_plots/conversion_vs_volume.png)
+<p align="center">
+  <img src="plots/readme_plots/conversion_vs_volume.png" width="500">
+</p>
+
+<!-- ![Conversion plot](plots/readme_plots/conversion_vs_volume.png) -->
 
 **Concentration vs PFR volume**
 
