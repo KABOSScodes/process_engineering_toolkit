@@ -54,7 +54,6 @@ class Reaction:
         return self.rate_law.rate(C, T)
 
 class Reactions:
-    """This class currently assumes elementary reactions"""
     def __init__(self, reactions):
         self.reaction_specs = self._normalize_input(reactions)
         self.reactions = self._parse_reactions(self.reaction_specs)
