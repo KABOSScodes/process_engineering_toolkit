@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-from scipy.optimize import root_scalar
+from scipy.optimize import root, root_scalar
 from scipy.interpolate import interp1d
+
+from ..units import standardize_units, ureg
 
 
 # Base class for all reactor models
@@ -21,9 +23,9 @@ class Reactor(ABC):
         p = self._validate_params(parameters)
         self.phase = p["phase"]
         # self.operation = p["operation"]
-        self.T = p["T"]
-        self.P = p["P"]
-        self.v0 = p["v0"]
+        self.T = standardize_units(p["T"], ureg.K)
+        self.P = standardize_units(p["P"], ureg.Pa)
+        self.v0 = standardize_units(p["v0"], ureg.m ** 3 / ureg.s)
         # self.density = p["density"]
 
         self.species = self._build_reactor_species()
@@ -118,7 +120,7 @@ class Reactor(ABC):
         for stream in self.inlet_streams:
             flows = stream.flows
             for i, sp in enumerate(self.species):
-                F[i] += flows.get(sp, 0.0) # Will add proper functionality later to handle flows expressed in various units (e.g., mol/s, kg/s, etc.)
+                F[i] += flows.get(sp, 0.0)
         return F
 
     @abstractmethod
@@ -157,30 +159,72 @@ class Reactor(ABC):
 
     def equilibrium_conversion(self, species):
 
-        species_idx = self.species.index(species)
+        F_eq = self.equilibrium_state()
 
         F0 = self.build_inlet_vector()
-        FA0 = F0[species_idx]
+        idx = self.species.index(species)
 
+        FA0 = F0[idx]
         if FA0 == 0:
-            raise ValueError(f"Inlet of species {species} is 0, thus cannot serve as reaction conversion basis.")
+            raise ValueError(f"Inlet of species {species} is 0.")
 
-        rxn_index = 0
-        nuA = self.SM[species_idx, rxn_index]
+        return (FA0 - F_eq[idx]) / FA0
 
-        def residual(X):
+    def equilibrium_state(self, initial_guess=None, tol=1e-8):
 
-            extent = FA0 * X / abs(nuA)
+        F0 = self.build_inlet_vector()
+        n_rxn = self.SM.shape[1]
 
-            F = F0 + self.SM[:, rxn_index] * extent
+        # --- Scaling factor (based on inlet magnitude) ---
+        scale = np.maximum(np.abs(F0).max(), 1.0)
 
-            r = self.reaction_rates(F)
+        # --- Residual in scaled variables ---
+        def residual_scaled(extents_scaled):
+            extents = extents_scaled * scale
+            F = F0 + self.SM @ extents
 
-            return r[rxn_index]
+            # Penalize non-physical states
+            if np.any(F < -1e-12):
+                return np.ones(n_rxn) * 1e6
 
-        sol = root_scalar(residual, bracket=[0,1], method="brentq")
+            return self.reaction_rates(F)
 
-        return sol.root
+        # --- Initial guesses ---
+        if initial_guess is not None:
+            guesses = [np.array(initial_guess) / scale]
+        else:
+            guesses = [
+                np.zeros(n_rxn),
+                np.ones(n_rxn) * 1e-6,
+                np.ones(n_rxn) * 0.1,
+            ]
+
+        # --- Solve attempts ---
+        for guess in guesses:
+
+            sol = root(residual_scaled, guess)
+
+            if not sol.success:
+                continue
+
+            extents = sol.x * scale
+            F_eq = F0 + self.SM @ extents
+
+            # --- Physical check ---
+            if np.any(F_eq < -1e-8):
+                continue
+
+            # --- Residual check ---
+            res = residual_scaled(sol.x)
+            if np.linalg.norm(res) > tol:
+                continue
+
+            return F_eq
+        
+        # If all attempts fail
+        raise RuntimeError(
+            "Equilibrium solver failed to converge to a physical solution."
+        )
 
     def profile(self, species_for_conversion=None, n_points=200):
 
@@ -226,7 +270,7 @@ class Reactor(ABC):
         # Gather profiles
         profile = {
             "volume": V,
-            "flows": dict(zip(self.species, F)),
+            "flow": dict(zip(self.species, F)),
             "concentration": dict(zip(self.species, C)),
             "mole_fraction": dict(zip(self.species, y)),
             "rate": rate_dict,
