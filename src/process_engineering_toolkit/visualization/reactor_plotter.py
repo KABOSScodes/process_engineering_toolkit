@@ -107,6 +107,7 @@ class ReactorPlotter:
         filename="profile_plot",
         location=None,
         show=True,
+        finalize=True,
     ):
         """
         Unified plotting method for reactor profiles.
@@ -148,6 +149,9 @@ class ReactorPlotter:
             Output directory (default "plots").
         show : bool, optional
             If True, display plot (default True).
+        finalize : bool, optional
+            If True, finalize the plot (default True).
+
         """
         # Validate profile keys
         self._validate_profile_keys(profile, X, Y)
@@ -192,7 +196,9 @@ class ReactorPlotter:
         self._apply_axis_style(ax, legend_loc=legend_loc)
         
         # Finalize
-        self._finalize_plot(save, filename, location, show)
+        self._finalize_plot(save, filename, location, show, finalize)
+
+        return fig, ax # Return figure and axes for further manipulation if needed
 
     # ---------------------------
     # Internal helpers
@@ -228,16 +234,17 @@ class ReactorPlotter:
 
         return magnitude, unit_str
 
-    def _finalize_plot(self, save, filename, location, show):
+    def _finalize_plot(self, save, filename, location, show, finalize=True):
         """Save plot to file if requested, display, and close."""
         if save:
             filepath = self._build_path(filename, location)
             plt.savefig(filepath, dpi=300, bbox_inches="tight")
 
-        if show:
+        if show and finalize: # Only show if finalize=True, allowing user to further manipulate the plot if needed
             plt.show()
 
-        plt.close()
+        if finalize: # Only close if finalize=True, allowing user to further manipulate the plot if needed
+            plt.close()
 
     def _build_path(self, filename, location):
         """Build file path for saving plots."""
