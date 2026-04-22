@@ -4,7 +4,7 @@ import numpy as np
 from scipy.optimize import root, root_scalar
 from scipy.interpolate import interp1d
 
-from ..units import standardize_units, ureg
+from ..units import standardize_units, _attach_units, ureg
 
 
 # Base class for all reactor models
@@ -225,6 +225,10 @@ class Reactor(ABC):
         raise RuntimeError(
             "Equilibrium solver failed to converge to a physical solution."
         )
+    
+    @abstractmethod
+    def _get_profile_units(self, **kwargs):
+        pass
 
     def profile(self, species_for_conversion=None, n_points=200):
 
@@ -257,10 +261,11 @@ class Reactor(ABC):
         # --- conversion ---
         conversion = None
 
-        if species_for_conversion is not None:
-            idx = self.species.index(species_for_conversion)
-            FA0 = F[idx, 0]
-            conversion = (FA0 - F[idx]) / FA0
+        if species_for_conversion is None:
+            raise ValueError("Must specify species_for_conversion to compute conversion profile.")
+        idx = self.species.index(species_for_conversion)
+        FA0 = F[idx, 0]
+        conversion = (FA0 - F[idx]) / FA0
 
         rate_dict = {
             f"R{i+1}": r[i]
@@ -269,6 +274,7 @@ class Reactor(ABC):
 
         # Gather profiles
         profile = {
+            "species_for_conversion": species_for_conversion,
             "volume": V,
             "flow": dict(zip(self.species, F)),
             "concentration": dict(zip(self.species, C)),
@@ -276,6 +282,10 @@ class Reactor(ABC):
             "rate": rate_dict,
             "conversion": conversion
         }
+
+        # Attach units to profile:
+        units = self._get_profile_units()
+        profile = _attach_units(profile, units)
 
         return profile
 
@@ -288,14 +298,14 @@ class Reactor(ABC):
             raise RuntimeError("Reactor must be solved first")
 
         # Get profile on a dense grid
-        profile = self.profile(species_for_conversion=species, n_points=n_points)
-        X = profile["conversion"]
-        V = profile["volume"]
+        profile = self.profile(species_for_conversion=species, n_points=n_points) # Store profile as attribute and use instead
+        X = profile["conversion"].magnitude
+        V = profile["volume"].magnitude
 
         # Interpolate conversion as a function of volume
         f = interp1d(X, V, bounds_error=True)
 
-        # Compute required volume11
+        # Compute required volume
         V_required = f(X_target)
 
         return float(V_required)
@@ -309,9 +319,9 @@ class Reactor(ABC):
             raise RuntimeError("Reactor must be solved first")
 
         # Get profile on a dense grid
-        profile = self.profile(species_for_conversion=species, n_points=n_points)
-        X = profile["conversion"]
-        V = profile["volume"]
+        profile = self.profile(species_for_conversion=species, n_points=n_points) # Store profile as attribute and use instead
+        X = profile["conversion"].magnitude
+        V = profile["volume"].magnitude
 
         # Interpolate volume as a function of conversion
         f = interp1d(V, X, bounds_error=True)
