@@ -1,6 +1,6 @@
 # units.py
 from pint import UnitRegistry
-import numpy as np
+# import numpy as np
 
 ureg = UnitRegistry()
 Q_ = ureg.Quantity
@@ -18,7 +18,7 @@ def standardize_units(value, expected_unit): # Pint can parse strings, so allow 
     else:
         return value  # assume already in SI
 
-def _attach_units(profile, units_map): # Should remove _
+def _attach_units(profile, units_map):
     def recurse(value, unit):
         if value is None:
             return None
@@ -28,6 +28,6 @@ def _attach_units(profile, units_map): # Should remove _
             return Q_(value, unit)
 
     return {
-        key: recurse(value, units_map[key])
+        key: recurse(value, units_map[key]) if key in units_map else value
         for key, value in profile.items()
     }
