@@ -198,7 +198,8 @@ class ReactorPlotter:
         # Finalize
         self._finalize_plot(save, filename, location, show, finalize)
 
-        return fig, ax # Return figure and axes for further manipulation if needed
+        if not finalize:
+            return fig, ax # Return figure and axes for further manipulation if needed
 
     # ---------------------------
     # Internal helpers
