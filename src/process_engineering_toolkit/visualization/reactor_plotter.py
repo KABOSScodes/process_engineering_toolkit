@@ -67,7 +67,7 @@ class ReactorPlotter:
         ax.legend(loc=legend_loc)
 
     def _apply_vlines(self, ax, vlines):
-        """Add vertical lines to the plot using the deterministic color system"""
+        """Add vertical lines to the plot"""
         if vlines is None:
             return
         
@@ -88,114 +88,111 @@ class ReactorPlotter:
     # Public plotting methods
     # ---------------------------
 
-    def conversion_vs_volume(
+    def plot(
         self,
         profile,
-        species_for_conversion=None,
-        volume_unit=None,
+        X,
+        Y,
+        x_species=None,
+        x_reaction=None,
+        y_species=None,
+        y_reaction=None,
+        # species_for_conversion=None,
+        x_unit=None,
+        y_unit=None,
         vlines=None,
         hlines=None,
         legend_loc='lower right',
         save=False,
-        filename=None,
+        filename="profile_plot",
         location=None,
         show=True,
     ):
+        """
+        Unified plotting method for reactor profiles.
+        
+        Parameters
+        ----------
+        profile : dict
+            Profile dictionary with keys: 'volume', 'flow', 'concentration', 
+            'mole_fraction', 'rate', 'conversion'
+        X : str
+            X-axis profile key. Single-value keys: 'volume', 'conversion'.
+            Dict-valued keys: 'flow', 'concentration', 'mole_fraction', 'rate'.
+        Y : str
+            Y-axis profile key. Same valid keys as X.
+        x_species : str, optional
+            Species name for X-axis (required if X is a dict-valued key).
+        x_reaction : str, optional
+            Reaction name for X-axis (required if X is 'rate').
+        y_species : str or list, optional
+            Species name(s) for Y-axis (optional if Y is a dict-valued key; 
+            all species plotted if not specified).
+        y_reaction : str or list, optional
+            Reaction name(s) for Y-axis (optional if Y is 'rate').
+        x_unit : str, optional
+            Target unit for X-axis data. If None, uses profile units.
+        y_unit : str, optional
+            Target unit for Y-axis data. If None, uses profile units.
+        vlines : list, optional
+            X-coordinates for vertical lines.
+        hlines : list, optional
+            Y-coordinates for horizontal lines.
+        legend_loc : str, optional
+            Legend location (default 'lower right').
+        save : bool, optional
+            If True, save plot to file.
+        filename : str, optional
+            Output filename without extension (default "profile_plot").
+        location : str, optional
+            Output directory (default "plots").
+        show : bool, optional
+            If True, display plot (default True).
+        """
+        # Validate profile keys
+        self._validate_profile_keys(profile, X, Y)
+        
+        # Extract X and Y data
+        x_data, x_unit_str, x_label = self._extract_data(
+            profile, X, species=x_species, reaction=x_reaction, target_unit=x_unit, is_x_axis=True
+        )
+        y_data, y_unit_str, y_label = self._extract_data(
+            profile, Y, species=y_species, reaction=y_reaction, target_unit=y_unit, is_x_axis=False
+        )
+        
+        # Add species/reaction to X-axis label if specified (for clarity)
+        if x_species is not None:
+            x_label = f"{x_label} ({x_species})"
+        elif x_reaction is not None:
+            x_label = f"{x_label} ({x_reaction})"
 
-        V, V_unit = self._prepare_data(profile["volume"], volume_unit)
-        X, _ = self._prepare_data(profile["conversion"])
-
+        if Y == "conversion":
+            y_label = f"Conversion of {profile['species_for_conversion']}"
+        elif X == "conversion":
+            x_label = f"Conversion of {profile['species_for_conversion']}"
+        
+        # Format axis labels: "Label, [unit]" if has units, else just "Label"
+        x_full_label = f"{x_label}, [{x_unit_str}]" if x_unit_str and x_unit_str != 'dimensionless' else x_label
+        y_full_label = f"{y_label}, [{y_unit_str}]" if y_unit_str and y_unit_str != 'dimensionless' else y_label
+        
+        # Create figure and axes
         fig, ax = plt.subplots()
-
-        color = self._get_color("Conversion")
-
-        if species_for_conversion is not None:
-            ylabel = f"Conversion, {species_for_conversion}"
-        else:
-            ylabel = "Conversion"
-        ax.plot(V, X, label="Conversion", color=color)
-
-        ax.set_xlabel(f"Volume, [{V_unit}]")
-        ax.set_ylabel(ylabel)
-        ax.set_title("Conversion vs Volume")
-        ax.legend()
+        
+        # Plot lines
+        self._plot_lines(ax, x_data, y_data, x_label, y_label)
+        
+        # Set labels
+        ax.set_xlabel(x_full_label)
+        ax.set_ylabel(y_full_label)
+        ax.set_title(f"{y_label} vs {x_label}")
+        
+        # Apply decorations
         self._apply_vlines(ax, vlines)
         self._apply_hlines(ax, hlines)
         self._apply_axis_style(ax, legend_loc=legend_loc)
-
-        self._finalize_plot(save, filename or "conversion_vs_volume", location, show)
-
-    def concentration_vs_volume(
-        self,
-        profile,
-        species=None,
-        volume_unit=None,
-        concentration_unit=None,
-        save=False,
-        filename=None,
-        location=None,
-        show=True,
-    ):
-
-        V, V_unit = self._prepare_data(profile["volume"], volume_unit)
-        conc = profile["concentration"]
-
-        species_to_plot = sorted(self._select_species(conc, species))
-
-        fig, ax = plt.subplots()
-
-        for sp in species_to_plot:
-            self._validate_species(sp, conc)
-
-            C, C_unit = self._prepare_data(conc[sp], concentration_unit)
-            color = self._get_color(sp)
-
-            ax.plot(V, C, label=sp, color=color)
-
-        ax.set_xlabel(f"Volume [{V_unit}]")
-        ax.set_ylabel(f"Concentration [{C_unit}]")
-        ax.set_title("Concentration vs Volume")
-        ax.legend()
         
-        self._apply_axis_style(ax)
-
-        self._finalize_plot(save, filename or "concentration_vs_volume", location, show)
-
-    def concentration_vs_conversion(
-        self,
-        obj,
-        species=None,
-        concentration_unit=None,
-        save=False,
-        filename=None,
-        location=None,
-        show=True,
-    ):
-        profile = self._get_profile(obj)
-
-        X, X_unit = self._prepare_data(profile["conversion"])
-        conc = profile["concentration"]
-
-        species_to_plot = sorted(self._select_species(conc, species))
-
-        fig, ax = plt.subplots()
-
-        for sp in species_to_plot:
-            self._validate_species(sp, conc)
-
-            C, C_unit = self._prepare_data(conc[sp], concentration_unit)
-            color = self._get_color(sp)
-
-            ax.plot(X, C, label=sp, color=color)
-
-        ax.set_xlabel(f"Conversion [{X_unit}]")
-        ax.set_ylabel(f"Concentration [{C_unit}]")
-        ax.set_title("Concentration vs Conversion")
-        ax.legend()
-        
-        self._apply_axis_style(ax)
-
-        self._finalize_plot(save, filename or "concentration_vs_conversion", location, show)
+        # Finalize
+        self._finalize_plot(save, filename, location, show)
 
     # ---------------------------
     # Internal helpers
@@ -215,16 +212,10 @@ class ReactorPlotter:
 
         return self._color_map[key]
 
-    def _get_profile(self, obj, species_for_conversion=None): # I think we should simplify and only 
-        if isinstance(obj, dict):
-            return obj
-
-        if hasattr(obj, "profile"):
-            return obj.profile()
-
-        raise ValueError("Input must be a profile dict or reactor with .profile()")
-
     def _prepare_data(self, quantity, target_unit=None):
+        """
+        Extract magnitude and formatted unit string from Pint Quantity.
+        """
         if not hasattr(quantity, "to"):
             raise TypeError("Expected Pint Quantity with units")
 
@@ -237,20 +228,8 @@ class ReactorPlotter:
 
         return magnitude, unit_str
 
-    def _select_species(self, concentration_dict, species):
-        if species is None:
-            return list(concentration_dict.keys())
-
-        if isinstance(species, str):
-            return [species]
-
-        return list(species)
-
-    def _validate_species(self, species, concentration_dict):
-        if species not in concentration_dict:
-            raise ValueError(f"Species '{species}' not found in profile")
-
     def _finalize_plot(self, save, filename, location, show):
+        """Save plot to file if requested, display, and close."""
         if save:
             filepath = self._build_path(filename, location)
             plt.savefig(filepath, dpi=300, bbox_inches="tight")
@@ -261,12 +240,143 @@ class ReactorPlotter:
         plt.close()
 
     def _build_path(self, filename, location):
+        """Build file path for saving plots."""
         if location is None:
             location = "plots"
 
         os.makedirs(location, exist_ok=True)
 
         return os.path.join(location, f"{filename}.png")
+
+    def _validate_profile_keys(self, profile, X, Y):
+        """Validate that X and Y are valid profile keys."""
+        valid_keys = profile.keys()
+        if X not in valid_keys:
+            raise ValueError(f"Invalid X key: '{X}'. Must be one of {valid_keys}")
+        if Y not in valid_keys:
+            raise ValueError(f"Invalid Y key: '{Y}'. Must be one of {valid_keys}")
+
+    def _extract_data(self, profile, key, species=None, reaction=None, target_unit=None, is_x_axis=False):
+        """
+        Extract data from profile for a given key.
+        
+        Automatically detects whether the key maps to a scalar or dict, and handles
+        extraction accordingly. Labels are auto-generated from the key name.
+        
+        Parameters
+        ----------
+        profile : dict
+            Profile dictionary
+        key : str
+            Profile key to extract
+        species : str or list, optional
+            Species name(s) for dict-valued keys. If list, returns dict of selected species.
+        reaction : str or list, optional
+            Reaction name(s) for 'rate' key. If list, returns dict of selected reactions.
+        target_unit : str, optional
+            Target unit for conversion
+        is_x_axis : bool, optional
+            If True, requires specification for dict-valued keys
+        
+        Returns
+        -------
+        data : ndarray or dict
+            If scalar key: ndarray of magnitudes
+            If dict key with selection: dict of selected items or single array
+            If dict key without selection (Y-axis): dict of all items
+        unit_str : str
+            Formatted unit string
+        label : str
+            Auto-generated label from key name
+        """
+        data = profile[key]
+        label = key.capitalize()
+        
+        # Handle dict-valued keys
+        if isinstance(data, dict):
+            # X-axis requires specification
+            if is_x_axis and species is None and reaction is None:
+                raise ValueError(
+                    f"X-axis key '{key}' requires specification. "
+                    f"Available: {list(data.keys())}"
+                )
+            
+            # Determine what to extract
+            selection = species if species is not None else reaction
+            
+            # If nothing specified (Y-axis), return all items as dict
+            if selection is None:
+                result = {}
+                unit_str = None
+                for item_key in sorted(data.keys()):
+                    quantity = data[item_key]
+                    if target_unit is not None:
+                        quantity = quantity.to(target_unit)
+                    magnitude, unit = self._prepare_data(quantity)
+                    result[item_key] = magnitude
+                    unit_str = unit
+                return result, unit_str, label
+            
+            # Convert single selection to list for uniform handling
+            if isinstance(selection, str):
+                selection = [selection]
+            
+            # Validate selections exist
+            for item in selection:
+                if item not in data:
+                    raise ValueError(f"'{item}' not found in {key}: {list(data.keys())}")
+            
+            # Extract selected items
+            result = {}
+            unit_str = None
+            for item in sorted(selection):
+                quantity = data[item]
+                if target_unit is not None:
+                    quantity = quantity.to(target_unit)
+                magnitude, unit = self._prepare_data(quantity)
+                result[item] = magnitude
+                unit_str = unit
+            
+            # For X-axis with single item, return as array not dict
+            if is_x_axis and len(selection) == 1:
+                return next(iter(result.values())), unit_str, label
+            
+            # For Y-axis or multiple items, return dict
+            return result, unit_str, label
+        
+        else:
+            # Scalar-valued key (volume, conversion, etc.)
+            if target_unit is not None:
+                data = data.to(target_unit)
+            magnitude, unit_str = self._prepare_data(data)
+            return magnitude, unit_str, label
+
+    def _plot_lines(self, ax, x_data, y_data, x_label, y_label):
+        """
+        Plot lines on the given axes.
+        
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            Axes to plot on.
+        x_data : ndarray
+            X-axis data (must be single array).
+        y_data : ndarray or dict
+            Y-axis data. If dict, plots multiple lines (one per key).
+        x_label : str
+            X-axis label.
+        y_label : str
+            Y-axis label.
+        """
+        if isinstance(y_data, dict):
+            # Plot multiple lines
+            for key in sorted(y_data.keys()):
+                color = self._get_color(key)
+                ax.plot(x_data, y_data[key], label=key, color=color)
+        else:
+            # Plot single line
+            color = self._get_color(y_label)
+            ax.plot(x_data, y_data, label=y_label, color=color)
 
 
 # ### Next upgrade ###
