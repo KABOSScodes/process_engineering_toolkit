@@ -31,3 +31,19 @@ class PFR(Reactor):
 
         return self.solution
     
+    def _get_profile_units(self):
+        """
+        Return unit structure matching the profile dictionary.
+        Units are defined at the category level where possible.
+        """
+
+        units = {
+            "volume": "m^3",
+            "flow": "mol/s",
+            "concentration": "mol/m^3",
+            "mole_fraction": "dimensionless",
+            "rate": "mol/(m^3*s)",
+            "conversion": "dimensionless",
+        }
+
+        return units
