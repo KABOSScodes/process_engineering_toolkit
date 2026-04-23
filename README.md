@@ -12,9 +12,9 @@ PET aims to provide simple, physics-based modeling tools for rapid conceptual pr
 - [Project Status](#project-status)
     - [Planned Progression](#planned-progression)
 - [Repository Structure](#repository-structure)
-- [Example: Single-reaction system (PFR)](#example-single-reaction-system-pfr)
-- [Example: Multi-reaction system (PFR)](#example-multi-reaction-system-pfr)
-- [Example: Multi-reaction system, irreversible (CSTR)](#example-multi-reaction-system-irreversible-cstr)
+- [Example: Single-reaction system, (gas, PFR)](#example-single-reaction-system-gas-pfr)
+- [Example: Multi-reaction system, (liquid, PFR)](#example-multi-reaction-system-liquid-pfr)
+- [Example: Multi-reaction system, (liquid, irreversible, CSTR)](#example-multi-reaction-system-irreversible-liquid-cstr)
 
 ## Motivation
 
@@ -90,16 +90,44 @@ New functionalities will added according to the Planned Progression below (not i
 └── pyproject.toml           # Project configuration and dependencies
 ```
 
-## Example: Single-reaction system (PFR)
+## Example: Single-reaction system, (gas, PFR)
 
 This example demonstrates how to define, reactions, streams, as well as plug flow reactor and how to simulate.
 
 ### Defining and solving a PFR reactor system
 
-```python
-import matplotlib.pyplot as plt
-from pet import Reactions, Stream, PFR
+**Imports and unit definitions**
 
+```python
+# Imports from PET
+from process_engineering_toolkit.units import ureg, standardize_units, Q_
+from process_engineering_toolkit.stream import Stream
+from process_engineering_toolkit.reactors.pfr import PFR
+from process_engineering_toolkit.reactors.cstr import CSTR
+from process_engineering_toolkit.rate_laws import MassActionRateLaw, PowerLawRateLaw
+from process_engineering_toolkit.reactions import Reactions
+
+# Plotting
+import matplotlib.pyplot as plt
+import scienceplots
+from process_engineering_toolkit.visualization.reactor_plotter import ReactorPlotter
+
+# Define units
+Pa = ureg.Pa
+atm = ureg.atm
+mol = ureg.mole
+J = ureg.joule
+K = ureg.kelvin
+L = ureg.liter
+s = ureg.s
+min = ureg.minute
+dm = ureg.decimeter
+m = ureg.meter
+```
+
+**Implementation**
+
+```python
 # -----------------------------
 # 1. Define reactions
 # -----------------------------
@@ -190,7 +218,7 @@ For a more detailed overview of how to use this object, the notebook 'exploratio
 plotter.plot(profile, "volume", "conversion", legend_loc='best', vlines=[0.5*1000, V_req*1000], hlines=[X, 0.4], x_unit="L")
 ```
 
-![Conversion vs Volume](docs/images/conversion_vs_volume.png)
+<img src="docs/images/conversion_vs_volume.png" alt="Conversion vs Volume" width="500">
 
 **Concentration vs PFR volume**
 
@@ -199,7 +227,7 @@ plotter.plot(profile, "volume", "conversion", legend_loc='best', vlines=[0.5*100
 plotter.plot(profile, "volume", "concentration", y_species=["A", "B"])
 ```
 
-![Concentration vs Volume](docs/images/concentration_vs_volume.png)
+<img src="docs/images/concentration_vs_volume.png" alt="Concentration vs Volume" width="500">
 
 ## Example: Multi-reaction system (PFR)
 
@@ -298,7 +326,7 @@ plotter = ReactorPlotter()
 plotter.plot(profile, "volume", "conversion")
 ```
 
-![Conversion vs Volume](docs/images/conversion_vs_volume_multi.png)
+<img src="docs/images/conversion_vs_volume_multi.png" alt="Conversion vs Volume multi" width="500">
 
 **Concentration vs PFR volume**
 
@@ -307,7 +335,7 @@ plotter.plot(profile, "volume", "conversion")
 plotter.plot(profile, "volume", "flow", legend_loc='best', y_species=["A", "B", "C", "D"])
 ```
 
-![Concentration vs Volume](docs/images/flow_vs_volume_multi.png)
+<img src="docs/images/flow_vs_volume_multi.png" alt="Flow vs Volume multi" width="500">
 
 ## Example: Multi-reaction system, irreversible (CSTR)
 
@@ -388,8 +416,8 @@ cstr_plotter.plot(cstr_profile, "volume", "concentration", legend_loc='best', y_
 
 **Conversion vs CSTR volume**
 
-![Conversion vs Volume](docs/images/conversion_vs_volume_multi_cstr.png)
+<img src="docs/images/conversion_vs_volume_multi_cstr.png" alt="Conversion vs Volume" width="500">
 
 **Concentration vs PFR volume**
 
-![Concentration vs Volume](docs/images/concentration_vs_volume_multi_cstr.png)
+<img src="docs/images/concentration_vs_volume_multi_cstr.png" alt="Conversion vs Volume" width="500">
