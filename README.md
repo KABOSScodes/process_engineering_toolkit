@@ -229,7 +229,7 @@ plotter.plot(profile, "volume", "concentration", y_species=["A", "B"])
 
 <img src="docs/images/concentration_vs_volume.png" alt="Concentration vs Volume" width="500">
 
-## Example: Multi-reaction system (PFR)
+## Example: Multi-reaction system, (liquid, PFR)
 
 This example demonstrates how to define and simulate a plug flow reactor with:
 - multiple simultaneous reactions
@@ -337,7 +337,7 @@ plotter.plot(profile, "volume", "flow", legend_loc='best', y_species=["A", "B", 
 
 <img src="docs/images/flow_vs_volume_multi.png" alt="Flow vs Volume multi" width="500">
 
-## Example: Multi-reaction system, irreversible (CSTR)
+## Example: Multi-reaction system, (liquid, irreversible, CSTR)
 
 ```python
 k1 = 0.01 * m**3 / mol / s
