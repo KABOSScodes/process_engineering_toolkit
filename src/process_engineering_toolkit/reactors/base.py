@@ -157,9 +157,9 @@ class Reactor(ABC):
 
         return r
 
-    def equilibrium_conversion(self, species):
+    def equilibrium_conversion(self, species, initial_guess=None, tol=1e-8):
 
-        F_eq = self.equilibrium_state()
+        F_eq = self.equilibrium_state(initial_guess=initial_guess, tol=tol)
 
         F0 = self.build_inlet_vector()
         idx = self.species.index(species)
@@ -171,6 +171,26 @@ class Reactor(ABC):
         return (FA0 - F_eq[idx]) / FA0
 
     def equilibrium_state(self, initial_guess=None, tol=1e-8):
+        """
+        Solve for equilibrium flows.
+
+        Parameters
+        ----------
+        initial_guess : dict, optional
+            Initial guess for species flows, e.g.
+            {"A": 5.0, "B": 1.5, "C": 5.5, "D": 0.5}.
+
+            Species not included retain their inlet values.
+            Values must be flowrates in the same basis as the reactor model.
+
+        tol : float, optional
+            Tolerance on the residual norm.
+
+        Returns
+        -------
+        np.ndarray
+            Equilibrium species flow vector.
+        """
 
         F0 = self.build_inlet_vector()
         n_rxn = self.SM.shape[1]
@@ -191,7 +211,8 @@ class Reactor(ABC):
 
         # --- Initial guesses ---
         if initial_guess is not None:
-            guesses = [np.array(initial_guess) / scale]
+            extents_guess = self._extents_from_flow_guess(initial_guess)
+            guesses = [extents_guess / scale]
         else:
             guesses = [
                 np.zeros(n_rxn),
@@ -201,7 +222,6 @@ class Reactor(ABC):
 
         # --- Solve attempts ---
         for guess in guesses:
-
             sol = root(residual_scaled, guess)
 
             if not sol.success:
@@ -220,11 +240,55 @@ class Reactor(ABC):
                 continue
 
             return F_eq
-        
-        # If all attempts fail
+
         raise RuntimeError(
             "Equilibrium solver failed to converge to a physical solution."
         )
+    
+    def _extents_from_flow_guess(self, flow_guess):
+        """
+        Convert a species equilibrium flow guess into a reaction extent guess.
+
+        Parameters
+        ----------
+        flow_guess : dict
+            Mapping species -> guessed flow.
+            Species not provided retain their inlet values.
+
+        Returns
+        -------
+        np.ndarray
+            Reaction extent guess.
+        """
+
+        F0 = self.build_inlet_vector()
+        F_guess = F0.copy()
+
+        if not isinstance(flow_guess, dict):
+            raise TypeError(
+                "initial_guess must be a dict of species flows, e.g. "
+                "{'A': 5.0, 'B': 1.5, 'C': 5.5, 'D': 0.5}"
+            )
+
+        for sp, val in flow_guess.items():
+            if sp not in self.species:
+                raise ValueError(f"Species '{sp}' not in reactor species list.")
+            idx = self.species.index(sp)
+            F_guess[idx] = val
+
+        delta_F = F_guess - F0
+
+        # Solve SM @ xi = delta_F
+        xi, residuals, rank, s = np.linalg.lstsq(self.SM, delta_F, rcond=None)
+
+        F_reconstructed = F0 + self.SM @ xi
+
+        if np.any(F_reconstructed < -1e-8):
+            raise ValueError(
+                "Initial flow guess leads to negative reconstructed flows."
+            )
+
+        return xi
     
     @abstractmethod
     def _get_profile_units(self, **kwargs):
