@@ -14,7 +14,7 @@ PET aims to provide simple, physics-based modeling tools for rapid conceptual pr
 - [Repository Structure](#repository-structure)
 - [Example: Single-reaction system, (gas, PFR)](#example-single-reaction-system-gas-pfr)
 - [Example: Multi-reaction system, (liquid, PFR)](#example-multi-reaction-system-liquid-pfr)
-- [Example: Multi-reaction system, (liquid, irreversible, CSTR)](#example-multi-reaction-system-irreversible-liquid-cstr)
+- [Example: Multi-reaction system, (liquid, irreversible, CSTR)](#example-multi-reaction-system-liquid-irreversible-cstr)
 
 ## Motivation
 
