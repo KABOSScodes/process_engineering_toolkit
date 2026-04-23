@@ -1,64 +1,68 @@
 # CSTR
+from scipy.optimize import root
+from scipy.interpolate import interp1d
 import numpy as np
-from scipy.optimize import fsolve
 
-class CSTR:
-    def __init__(self, volume, reactions, inlet_flow):
+from .base import Reactor
+
+
+class CSTR(Reactor):
+
+    def solve(self, V):
         """
-        volume: reactor volume in m3
-        reactions: list of Reaction objects
-        inlet_flow: Flow object (aggregated inlet streams)
-        """
-        self.volume = volume
-        self.reactions = reactions
-        self.inlet_flow = inlet_flow
+        Solve CSTR at steady state.
         
-        # Species dictionary: name -> index
-        self.species_names = list(self.inlet_flow.species)
-        self.species_index = {name: i for i, name in enumerate(self.species_names)}
-        self.num_species = len(self.species_names)
-        self.num_reactions = len(reactions)
+        Parameters
+        ----------
+        V : float or tuple
+            Single volume (float) or volume span (tuple): (V_start, V_end)
+        """
+        F0 = self.build_inlet_vector()
         
-        # Stoichiometric matrix: nu[i,j] = stoichiometry of species i in reaction j
-        self.nu = np.zeros((self.num_species, self.num_reactions))
-        for j, reaction in enumerate(reactions):
-            for sp, coeff in reaction.stoichiometry.items():
-                if sp in self.species_index:
-                    i = self.species_index[sp]
-                    self.nu[i, j] = coeff
-
-    def _reaction_rates(self, concentrations):
-        """
-        Calculate rate of each reaction given species concentrations.
-        concentrations: np.array of species concentrations in mol/m3
-        returns: np.array of reaction rates [r1, r2, ...] in mol/(m3*s)
-        """
-        rates = np.zeros(self.num_reactions)
-        for j, reaction in enumerate(self.reactions):
-            rates[j] = reaction.rate(concentrations, self.species_index)
-        return rates
-
-    def _mass_balance_equations(self, outlet_conc):
-        """
-        Steady-state mass balance for CSTR: F_in - F_out + V*r = 0
-        outlet_conc: np.array of species concentrations (mol/m3)
-        returns: np.array of residuals
-        """
-        F_in = np.array([self.inlet_flow.total_flow(sp) for sp in self.species_names])
-        F_out = outlet_conc  # assuming volumetric flow = 1 m3/s for simplicity, can scale later
-        r = self._reaction_rates(outlet_conc)
-        residuals = F_in - F_out + self.volume * self.nu @ r
-        return residuals
-
-    def compute_outlet(self, guess=None):
-        """
-        Solve steady-state CSTR for outlet concentrations
-        guess: optional initial guess for concentrations
-        returns: dict {species_name: outlet_concentration}
-        """
-        if guess is None:
-            guess = np.array([self.inlet_flow.total_flow(sp) for sp in self.species_names])
+        # Handle both single value and span
+        if isinstance(V, (tuple, list)):
+            V_array = np.linspace(V[0], V[1], 100)
+        else:
+            V_array = np.array([V])
         
-        outlet_conc = fsolve(self._mass_balance_equations, guess)
-        return dict(zip(self.species_names, outlet_conc))
+        # Solve CSTR at each volume point
+        F_out_list = []
+        for V_val in V_array:
+            def mole_balance(F):
+                r = self.reaction_rates(F)
+                return F0 - F + V_val * (self.SM @ r)
+            
+            sol = root(mole_balance, F0)
+            if not sol.success:
+                raise RuntimeError(f"CSTR solver failed at V={V_val}")
+            F_out_list.append(sol.x)
+        
+        F_out_array = np.array(F_out_list).T  # Shape: (n_species, n_volumes)
+        
+        # Create interpolator for consistency with PFR
+        interpolator = interp1d(V_array, F_out_array, kind='cubic', bounds_error=False)
+        
+        self.solution = {
+            "volume": V_array,
+            "flows": F_out_array,
+            "interpolator": interpolator
+        }
+        
+        return self.solution
+    
+    def _get_profile_units(self):
+        """
+        Return unit structure matching the profile dictionary.
+        Units are defined at the category level where possible.
+        """
 
+        units = {
+            "volume": "m^3",
+            "flow": "mol/s",
+            "concentration": "mol/m^3",
+            "mole_fraction": "dimensionless",
+            "rate": "mol/(m^3*s)",
+            "conversion": "dimensionless",
+        }
+
+        return units
